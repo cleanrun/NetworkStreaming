@@ -7,6 +7,7 @@
 
 import UIKit
 import AVFoundation
+import NIOCore
 
 final class HostVC: UIViewController {
     
@@ -84,7 +85,9 @@ final class HostVC: UIViewController {
 
 extension HostVC: HostSessionDelegate {
     func didReceiveNALU(_ nalu: Data) {
-        naluParser.enqueue(nalu)
+        autoreleasepool { [unowned self] in
+            naluParser.enqueue(CircularBuffer(nalu))
+        }
     }
 }
 
@@ -92,7 +95,9 @@ extension HostVC: HostSessionDelegate {
 
 extension HostVC: NALUParserDelegate {
     func didReceiveUnit(_ unit: H264Unit) {
-        decoder.decode(unit)
+        autoreleasepool { [unowned self] in
+            decoder.decode(unit)
+        }
     }
 }
 

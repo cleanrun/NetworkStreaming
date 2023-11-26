@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import AVFoundation
 import VideoToolbox
 
 protocol H264EncoderDelegate: AnyObject {
@@ -24,6 +23,8 @@ final class H264Encoder: NSObject {
     
     private var compressionSession: VTCompressionSession!
     private static let naluStartCode = Data([UInt8](arrayLiteral: 0x00, 0x00, 0x00, 0x01))
+    
+    private lazy var encodingQueue = DispatchQueue(label: "com.cleanrun.networkstreaming.encodingQueue", qos: .userInitiated)
     
     init(delegate: H264EncoderDelegate) throws {
         self.delegate = delegate
@@ -98,20 +99,22 @@ final class H264Encoder: NSObject {
     }
     
     func encode(_ buffer: CMSampleBuffer) {
-        guard let compressionSession,
-              let imageBuffer = CMSampleBufferGetImageBuffer(buffer)
-        else { return }
-        
-        let timestamp = CMSampleBufferGetPresentationTimeStamp(buffer)
-        let duration = CMSampleBufferGetDuration(buffer)
-        
-        VTCompressionSessionEncodeFrame(compressionSession,
-                                        imageBuffer: imageBuffer,
-                                        presentationTimeStamp: timestamp,
-                                        duration: duration,
-                                        frameProperties: nil,
-                                        sourceFrameRefcon: nil,
-                                        infoFlagsOut: nil)
+        encodingQueue.async { [unowned self] in
+            guard let compressionSession,
+                  let imageBuffer = CMSampleBufferGetImageBuffer(buffer)
+            else { return }
+            
+            let timestamp = CMSampleBufferGetPresentationTimeStamp(buffer)
+            let duration = CMSampleBufferGetDuration(buffer)
+            
+            VTCompressionSessionEncodeFrame(compressionSession,
+                                            imageBuffer: imageBuffer,
+                                            presentationTimeStamp: timestamp,
+                                            duration: duration,
+                                            frameProperties: nil,
+                                            sourceFrameRefcon: nil,
+                                            infoFlagsOut: nil)
+        }
     }
     
     // MARK: - Private methods
